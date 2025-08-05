@@ -42,8 +42,10 @@ class CPU:
                 self.call(opcode)
             case 0x3000 | 0x4000 | 0x5000 | 0x9000:
                 self.dispatch_comparison(opcode)
-            case 0x6000 | 0x7000:
-                pass
+            case 0x6000:
+                self.set_reg(opcode)
+            case 0x7000:
+                self.add_nn_no_carry(opcode)
             case 0x8000:
                 pass
             case 0xA000:
@@ -129,6 +131,58 @@ class CPU:
         ):
             self.pc += 2
 
+    def set_reg(self, opcode: int):
+        reg_idx = self._second_nibble(opcode)
+        self.registers[reg_idx] = self._second_byte(opcode)
+
+    def add_nn_no_carry(self, opcode: int):
+        reg_idx = self._second_nibble(opcode)
+        value = self._second_byte(opcode)
+        self.registers[reg_idx] = (self.registers[reg_idx] + value) % 256
+
+    def dispatch_reg_arithmetic(self, opcode: int):
+        reg1_idx = self._second_nibble(opcode)
+        reg1_value = self.registers[reg1_idx]
+        reg2_value = self.registers[self._third_nibble(opcode)]
+        match opcode & 0x000F:
+            case 0x0000:
+                self.registers[reg1_idx] = reg2_value
+            case 0x0001:
+                self.registers[reg1_idx] = reg1_value | reg2_value
+            case 0x0002:
+                self.registers[reg1_idx] = reg1_value & reg2_value
+            case 0x0003:
+                self.registers[reg1_idx] = reg1_value ^ reg2_value
+            case 0x0004:
+                self.add_reg_carry(reg1_idx, reg1_value, reg2_value)
+            case 0x0005:
+                self.sub_reg_borrow(reg1_idx, reg1_value, reg2_value)
+            case 0x0006:
+                self.shift_reg_right(reg1_idx, reg1_value)
+            case 0x0007:
+                self.sub_reg_borrow(reg1_idx, reg2_value, reg1_value)
+            case 0x000E:
+                self.shift_reg_left(reg1_idx, reg1_value)
+            case _:
+                ValueError(f"Code {opcode} not supported.")
+
+    def add_reg_carry(self, reg_idx: int, value1: int, value2: int):
+        sum_ = value1 + value2
+        self.registers[-1] = 1 if sum_ > 255 else 0
+        self.registers[reg_idx] = sum_ % 256
+
+    def sub_reg_borrow(self, reg_idx: int, value1: int, value2: int):
+        diff = value1 - value2
+        self.registers[-1] = 0 if diff < 0 else 1
+        self.registers[reg_idx] = (diff + 256) % 256
+
+    def shift_reg_right(self, reg_idx: int, value1: int):
+        self.registers[-1] = value1 & 0b0000_0001
+        self.registers[reg_idx] = value1 >> 1
+
+    def shift_reg_left(self, reg_idx: int, value1: int):
+        self.registers[-1] = value1 & 0b1000_0000
+        self.registers[reg_idx] = (value1 & 0b0111_1111) << 1
+
     def set_i(self, opcode: int):
         self.i = self._last_3_nibbles(opcode)
-    
