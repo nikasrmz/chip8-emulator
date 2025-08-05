@@ -1,4 +1,5 @@
 from typing import List
+from random import randint
 
 from configs import REGISTER_COUNT, ROM_START_IDX, STACK_SIZE
 from core import Memory, Display
@@ -47,11 +48,11 @@ class CPU:
             case 0x7000:
                 self.add_nn_no_carry(opcode)
             case 0x8000:
-                pass
+                self.dispatch_reg_arithmetic(opcode)
             case 0xA000:
                 self.set_i(opcode)
             case 0xC000:
-                pass
+                self.set_random_byte(opcode)
             case 0xD000:
                 pass
             case 0xE000:
@@ -186,3 +187,14 @@ class CPU:
 
     def set_i(self, opcode: int):
         self.i = self._last_3_nibbles(opcode)
+
+    def set_random_byte(self, opcode: int):
+        reg_idx = self._second_nibble(opcode)
+        value = self._second_byte(opcode)
+        self.registers[reg_idx] = value & randint(0, 255)
+
+    def draw_sprite(self, opcode: int):
+        x = self._second_nibble(opcode)
+        y = self._third_nibble(opcode)
+        size = self._fourth_nibble(opcode)
+        
