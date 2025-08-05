@@ -29,7 +29,7 @@ class CPU:
 
     def high_nibble_dispatch(self):
         """
-        This function acts as a top level categorization for opcodes. Codes 0x3??? 
+        This method acts as a top level categorization for opcodes. Codes 0x3??? 
         through 0x7??? are grouped together, since those codes are for skipping lines,
         and altering register with outside values.
         """
@@ -62,21 +62,39 @@ class CPU:
                 raise ValueError(f"Code {self.opcode} not supported.")
 
     def _second_nibble(self):
+        """
+        Returns second nibble (4 bits) of current opcode. (ex: 2 from 0x1234)
+        """
         return (self.opcode & 0x0F00) >> 8
     
     def _third_nibble(self):
+        """
+        Returns third nibble (4 bits) of current opcode. (ex: 3 from 0x1234)
+        """
         return (self.opcode & 0x00F0) >> 4
     
     def _fourth_nibble(self):
+        """
+        Returns fourth nibble (4 bits) of current opcode. (ex: 4 from 0x1234)
+        """
         return self.opcode & 0x000F
     
     def _second_byte(self):
+        """
+        Returns second byte (8 bits) of current opcode. (ex: 34 from 0x1234)
+        """
         return self.opcode & 0x00FF
     
     def _last_3_nibbles(self):
+        """
+        Returns last three nibbles (12 bits) of current opcode. (ex: 234 from 0x1234)
+        """
         return self.opcode & 0x0FFF
     
     def dispatch_sys_control(self):
+        """
+        Second layer categorization, system & flow control. (codes starting on 0x0)
+        """
         match self.opcode & 0x0FFF:
             case 0x00E0:
                 self.display.clear_screen()
@@ -86,10 +104,16 @@ class CPU:
                 raise ValueError(f"Code {self.opcode} not supported.")
             
     def return_from_subroutine(self):
+        """
+        Handler for code 00EE - RET.
+        """
         self.sp -= 1
         self.pc = self.stack[self.sp]
 
     def jump(self):
+        """
+        Handler for codes: 1nnn - JP nnn and Bnnn - JP V0, nnn
+        """
         destination = self.opcode & 0x0FFF
         match self.opcode & 0xF000:
             case 0x1000:
@@ -101,12 +125,19 @@ class CPU:
         self.pc_modified = True
 
     def call(self):
+        """
+        Handler for code 2nnn - CALL nnn
+        """
         self.stack[self.sp] = self.pc
         self.sp += 1
         self.pc = self.opcode & 0x0FFF
         self.pc_modified = True
 
     def dispatch_comparison(self):
+        """
+        Second layer categorization, equality and inequality (codes starting on
+        0x3, 0x4, 0x5, 0x9) 
+        """
         match self.opcode & 0xF000:
             case 0x3000 | 0x4000:
                 self.skip_eq_neq_nn(self.opcode)
@@ -114,6 +145,9 @@ class CPU:
                 self.skip_eq_neq_reg(self.opcode)
     
     def skip_eq_neq_nn(self):
+        """
+        Handler for codes: 3xkk - SE Vx, kk; 4xkk - SNE Vx, kk.
+        """
         reg_value = self.registers[self._second_nibble(self.opcode)]
         value = self._second_byte(self.opcode)
         if (
@@ -123,6 +157,9 @@ class CPU:
             self.pc += 2
 
     def skip_eq_neq_reg(self):
+        """
+        Handler for codes: 5xy0 - SE Vx, Vy; 9xy0 - SNE Vx, Vy.
+        """
         reg1_value = self.registers[self._second_nibble(self.opcode)]
         reg2_value = self.registers[self._third_nibble(self.opcode)]
         if (
@@ -132,6 +169,9 @@ class CPU:
             self.pc += 2
 
     def set_reg(self):
+        """
+        Handler for code 6xkk - LD Vx, kk
+        """
         reg_idx = self._second_nibble(self.opcode)
         self.registers[reg_idx] = self._second_byte(self.opcode)
 
