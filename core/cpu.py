@@ -1,8 +1,9 @@
 from typing import List
 from random import randint
 
+from core.memory import Memory
+from core.display import Display
 from configs import REGISTER_COUNT, ROM_START_IDX, STACK_SIZE
-from core import Memory, Display
 
 
 class CPU:
@@ -54,7 +55,7 @@ class CPU:
             case 0xC000:
                 self.set_random_byte(opcode)
             case 0xD000:
-                pass
+                self.draw_sprite(opcode)
             case 0xE000:
                 pass
             case 0xF000:
@@ -197,4 +198,7 @@ class CPU:
         x = self._second_nibble(opcode)
         y = self._third_nibble(opcode)
         size = self._fourth_nibble(opcode)
-        
+        byte_array = [self.memory.read_byte(self.i + j) for j in range(size)]
+        collision = self.display.draw_sprite(x, y, byte_array)
+        self.registers[-1] = collision
+    
