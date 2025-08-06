@@ -1,5 +1,6 @@
 from typing import List
 from random import randint
+from datetime import datetime
 
 from core.memory import Memory
 from core.display import Display
@@ -21,6 +22,7 @@ class CPU:
     opcode: int
     delay_timer: int
     sound_timer: int
+    last_timer_update: int
 
     def __init__(self, memory: Memory, display: Display, input_: Input_):
         self.memory = memory
@@ -32,8 +34,29 @@ class CPU:
         self.i = 0
         self.stack = [0] * STACK_SIZE
         self.sp = 0
+        last_timer_update = datetime.now()
 
-    def high_nibble_dispatch(self):
+    def cycle(self):
+        self.opcode = self.memory.read_word(self.pc)
+        self.dispatch()
+        if not self.pc_modified:
+            self.pc += 2
+        self.pc_modified = False
+        self.display.refresh()
+        self.update_timers()
+            
+
+    def update_timers(self):
+        time_now = datetime.now()
+        if time_now - self.last_timer_update <= 1 / 60:
+            if self.delay_timer > 0:
+                self.delay_timer -= 1
+            if self.sound_timer > 0:
+                self.sound_timer -= 1
+            self.last_timer_update = time_now
+
+
+    def dispatch(self):
         """
         This method acts as a top level categorization for opcodes. Some codes (ex: the
         ones starting on 0x1, 0xB) are grouped together, since those codes share 
@@ -64,7 +87,7 @@ class CPU:
             case 0xE000:
                 self.process_input()
             case 0xF000:
-                pass
+                self.dispatch_misc_fx()
             case _:
                 raise UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
@@ -114,6 +137,8 @@ class CPU:
         """
         Handler for code 00EE - RET.
         """
+        if self.sp == 0:
+            raise RuntimeError("RET called with empty stack")
         self.sp -= 1
         self.pc = self.stack[self.sp]
 
