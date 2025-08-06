@@ -3,7 +3,6 @@ from typing import List
 from configs import (
     MEMORY_SIZE_IN_BYTES,
     ROM_START_IDX, 
-    FILE_PATH, 
     FONTSET_START_ADDRESS, 
     FONTSET
 )
@@ -24,12 +23,12 @@ class Memory:
         self._memory = [0] * MEMORY_SIZE_IN_BYTES
         self._load_fontset()
 
-    def load_rom(self):
+    def load_rom(self, file_path: str):
         """
         Reads bytes from ROM file and replaces same-size sub-array in memory.
         """
 
-        with open(FILE_PATH, "rb") as f:
+        with open(file_path, "rb") as f:
             byte_array = bytearray(f.read())
         end_idx = ROM_START_IDX + len(byte_array)
         self._memory[ROM_START_IDX:end_idx] = byte_array
