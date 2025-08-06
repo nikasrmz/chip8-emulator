@@ -1,6 +1,12 @@
 from typing import List
 
-from configs import MEMORY_SIZE_IN_BYTES, ROM_START_IDX, FILE_PATH
+from configs import (
+    MEMORY_SIZE_IN_BYTES,
+    ROM_START_IDX, 
+    FILE_PATH, 
+    FONTSET_START_ADDRESS, 
+    FONTSET
+)
 
 
 class Memory:
@@ -16,6 +22,7 @@ class Memory:
 
     def __init__(self):
         self._memory = [0] * MEMORY_SIZE_IN_BYTES
+        self._load_fontset()
 
     def load_rom(self):
         """
@@ -26,6 +33,12 @@ class Memory:
             byte_array = bytearray(f.read())
         end_idx = ROM_START_IDX + len(byte_array)
         self._memory[ROM_START_IDX:end_idx] = byte_array
+
+    def _load_fontset(self):
+        for digit in range(0x10):
+            for byte_idx in range(5):
+                memory_idx = FONTSET_START_ADDRESS + 5 * digit + byte_idx
+                self._memory[memory_idx] = FONTSET[5 * digit + byte_idx]
 
     def read_byte(self, addr: int) -> int:
         """
@@ -74,3 +87,6 @@ class Memory:
         if value > 255:
             raise ValueError("Given value larger than 1 byte")
         self._memory[addr] = value
+
+    def get_sprite_address(self, digit: int):
+        pass
