@@ -13,14 +13,6 @@ def test_rom_loading():
 
     assert m._memory[ROM_START_IDX:ROM_START_IDX + len(dummy_data)] == list(dummy_data)
 
-def test_get_sprite_address():
-    m = Memory()
-    
-    for i in range(0x10):
-        addr = m.get_sprite_address(i)
-        correct_addr = FONTSET_START_ADDRESS + 5 * i
-        assert addr == correct_addr
-
 def test_write_read():
     m = Memory()
 
@@ -29,5 +21,13 @@ def test_write_read():
     assert m._memory[200] == 0xFF
 
     assert m.read_byte(200) == 0xFF
+
+def test_get_sprite_address():
+    m = Memory()
+    
+    for i in range(0x10):
+        addr = m.get_sprite_address(i)
+        correct_addr = FONTSET_START_ADDRESS + 5 * i
+        assert addr == correct_addr
     
         
