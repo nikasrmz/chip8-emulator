@@ -1,5 +1,6 @@
 from typing import List
 
+from core.errors import MemoryOutOfBoundsError, ByteOverflowError
 from configs import (
     MEMORY_SIZE_IN_BYTES,
     ROM_START_IDX, 
@@ -51,8 +52,8 @@ class Memory:
             value of a single byte as int
         """
 
-        if addr > MEMORY_SIZE_IN_BYTES:
-            raise IndexError("Memory access out of bounds")
+        if addr >= MEMORY_SIZE_IN_BYTES:
+            raise MemoryOutOfBoundsError("Memory access out of bounds")
         return self._memory[addr]
 
     def read_word(self, addr: int) -> int:
@@ -68,7 +69,7 @@ class Memory:
         """
 
         if addr + 1 > MEMORY_SIZE_IN_BYTES:
-            raise IndexError("Memory access out of bounds")
+            raise MemoryOutOfBoundsError("Memory access out of bounds")
         return self._memory[addr] << 8 | self._memory[addr + 1]
 
     def write_byte(self, addr: int, value: int):
@@ -82,9 +83,9 @@ class Memory:
         """
 
         if addr > MEMORY_SIZE_IN_BYTES:
-            raise IndexError("Memory access out of bounds")
+            raise MemoryOutOfBoundsError("Memory access out of bounds")
         if value > 255:
-            raise ValueError("Given value larger than 1 byte")
+            raise ByteOverflowError("Given value larger than 1 byte")
         self._memory[addr] = value
 
     def get_sprite_address(self, digit: int) -> int:

@@ -4,7 +4,8 @@ from random import randint
 from core.memory import Memory
 from core.display import Display
 from core.input_ import Input_
-from configs import REGISTER_COUNT, ROM_START_IDX, STACK_SIZE
+from core.errors import UnsupportedOpcodeError
+from configs import REGISTER_COUNT, ROM_START_IDX, STACK_SIZE, VF_IDX
 
 
 class CPU:
@@ -65,7 +66,7 @@ class CPU:
             case 0xF000:
                 pass
             case _:
-                raise ValueError(f"Code {self.opcode} not supported.")
+                raise UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
     def _second_nibble(self):
         """
@@ -107,7 +108,7 @@ class CPU:
             case 0x00EE:
                 self.return_from_subroutine()
             case _:
-                raise ValueError(f"Code {self.opcode} not supported.")
+                raise UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
             
     def return_from_subroutine(self):
         """
@@ -127,7 +128,7 @@ class CPU:
             case 0xB000:
                 self.pc = destination + self.registers[0]
             case _:
-                raise ValueError(f"Code {self.opcode} not supported.")
+                raise UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
         self.pc_modified = True
 
     def call(self):
@@ -220,14 +221,14 @@ class CPU:
             case 0x000E:
                 self.shift_reg_left(reg1_idx, reg1_value)
             case _:
-                ValueError(f"Code {self.opcode} not supported.")
+                UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
     def add_reg_carry(self, reg_idx: int, value1: int, value2: int):
         """
         Handler for code 8xy4 - ADD Vx, Vy
         """
         sum_ = value1 + value2
-        self.registers[-1] = 1 if sum_ > 255 else 0
+        self.registers[VF_IDX] = 1 if sum_ > 255 else 0
         self.registers[reg_idx] = sum_ % 256
 
     def sub_reg_borrow(self, reg_idx: int, value1: int, value2: int):
@@ -235,21 +236,21 @@ class CPU:
         Handler for codes: 8xy5 - SUB Vx, Vy; 8xy7 - SUBN Vx, Vy
         """
         diff = value1 - value2
-        self.registers[-1] = 0 if diff < 0 else 1
+        self.registers[VF_IDX] = 0 if diff < 0 else 1
         self.registers[reg_idx] = (diff + 256) % 256
 
     def shift_reg_right(self, reg_idx: int, value1: int):
         """
         Handler for code 8xy6 - SHR Vx {, Vy}
         """
-        self.registers[-1] = value1 & 0b0000_0001
+        self.registers[VF_IDX] = value1 & 0b0000_0001
         self.registers[reg_idx] = value1 >> 1
 
     def shift_reg_left(self, reg_idx: int, value1: int):
         """
         Handler for code 8xyE - SHL Vx {, Vy}
         """
-        self.registers[-1] = value1 & 0b1000_0000
+        self.registers[VF_IDX] = value1 & 0b1000_0000
         self.registers[reg_idx] = (value1 & 0b0111_1111) << 1
 
     def set_i(self):
@@ -275,7 +276,7 @@ class CPU:
         size = self._fourth_nibble(self.opcode)
         byte_array = [self.memory.read_byte(self.i + j) for j in range(size)]
         collision = self.display.draw_sprite(x, y, byte_array)
-        self.registers[-1] = collision
+        self.registers[VF_IDX] = collision
 
     def process_input(self):
         key = self.registers[self._second_nibble(self.opcode)]
@@ -308,7 +309,7 @@ class CPU:
             case 0x0065:
                 self.exchange_regs_memory(write=False)
             case _:
-                ValueError(f"Code {self.opcode} not supported.")
+                UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
     def store_bcd(self):
         val = self.registers[self._second_nibble(self.opcode)]
