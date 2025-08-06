@@ -3,12 +3,14 @@ from random import randint
 
 from core.memory import Memory
 from core.display import Display
+from core.input_ import Input_
 from configs import REGISTER_COUNT, ROM_START_IDX, STACK_SIZE
 
 
 class CPU:
     memory: Memory
     display: Display
+    input_: Input_
     registers: List[int]
     pc: int
     pc_modified: bool
@@ -16,6 +18,8 @@ class CPU:
     stack: List[int]
     sp: int
     opcode: int
+    delay_timer: int
+    sound_timer: int
 
     def __init__(self):
         self.memory = Memory()
@@ -56,7 +60,7 @@ class CPU:
             case 0xD000:
                 self.draw_sprite()
             case 0xE000:
-                pass
+                self.process_input()
             case 0xF000:
                 pass
             case _:
@@ -271,4 +275,50 @@ class CPU:
         byte_array = [self.memory.read_byte(self.i + j) for j in range(size)]
         collision = self.display.draw_sprite(x, y, byte_array)
         self.registers[-1] = collision
-    
+
+    def process_input(self):
+        key = self.registers[self._second_nibble(self.opcode)]
+        low_byte = self._second_byte(self.opcode)
+        if (
+            (low_byte == 0x9E and self.input_.key_pressed(key)) or
+            (low_byte == 0xA1 and self.input_.key_not_pressed(key))
+        ):
+            self.pc += 2
+
+    def dispatch_misc_fx(self):
+        reg_idx = self._second_nibble(self.opcode)
+        match self.opcode & 0x00FF:
+            case 0x0007:
+                self.registers[reg_idx] = self.delay_timer
+            case 0x000A:
+                self.registers[reg_idx] = self.input_.wait_store_key()
+            case 0x0015:
+                self.delay_timer = self.registers[reg_idx]
+            case 0x0018:
+                self.sound_timer = self.registers[reg_idx]
+            case 0x001E:
+                self.i += self.registers[reg_idx]
+            case 0x0029:
+                pass # TODO: getting sprite address
+            case 0x0033:
+                self.store_bcd()
+            case 0x0055:
+                self.exchange_regs_memory(write=True)
+            case 0x0065:
+                self.exchange_regs_memory(write=False)
+            case _:
+                ValueError(f"Code {self.opcode} not supported.")
+
+    def store_bcd(self):
+        val = self.registers[self._second_nibble(self.opcode)]
+        for j in range(3):
+            digit = (val // (10 ** (2 - j))) % 10
+            self.memory.write_byte(self.i + j, digit)
+
+    def exchange_regs_memory(self, write: bool):
+        reg_idx = self._second_nibble(self.opcode)
+        for idx in range(reg_idx):
+            if write:
+                self.memory.write_byte(self.i + idx, self.registers[idx])
+            else:
+                self.registers[idx] = self.memory.read_byte()
