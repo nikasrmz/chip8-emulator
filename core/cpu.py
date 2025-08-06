@@ -25,7 +25,7 @@ class CPU:
     def __init__(self, memory: Memory, display: Display, input_: Input_):
         self.memory = memory
         self.display = display
-        self.input_ - input_
+        self.input_ = input_
         self.registers = [0] * REGISTER_COUNT
         self.pc = ROM_START_IDX
         self.pc_modified = False
@@ -147,9 +147,9 @@ class CPU:
         """
         match self.opcode & 0xF000:
             case 0x3000 | 0x4000:
-                self.skip_eq_neq_nn(self.opcode)
+                self.skip_eq_neq_nn()
             case 0x5000 | 0x9000:
-                self.skip_eq_neq_reg(self.opcode)
+                self.skip_eq_neq_reg()
     
     def skip_eq_neq_nn(self):
         """
