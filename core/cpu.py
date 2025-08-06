@@ -21,9 +21,10 @@ class CPU:
     delay_timer: int
     sound_timer: int
 
-    def __init__(self):
-        self.memory = Memory()
-        self.display = Display()
+    def __init__(self, memory: Memory, display: Display, input_: Input_):
+        self.memory = memory
+        self.display = display
+        self.input_ - input_
         self.registers = [0] * REGISTER_COUNT
         self.pc = ROM_START_IDX
         self.pc_modified = False
