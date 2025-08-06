@@ -29,9 +29,10 @@ class CPU:
 
     def high_nibble_dispatch(self):
         """
-        This method acts as a top level categorization for opcodes. Codes 0x3??? 
-        through 0x7??? are grouped together, since those codes are for skipping lines,
-        and altering register with outside values.
+        This method acts as a top level categorization for opcodes. Some codes (ex: the
+        ones starting on 0x1, 0xB) are grouped together, since those codes share 
+        similar purposes and/or use the same function. Some codes are passed to second
+        layer of categorization.
         """
         match self.opcode & 0xF000:
             case 0x0000:
@@ -170,17 +171,27 @@ class CPU:
 
     def set_reg(self):
         """
-        Handler for code 6xkk - LD Vx, kk
+        Handler for code 6xkk - LD Vx, kk.
         """
         reg_idx = self._second_nibble(self.opcode)
         self.registers[reg_idx] = self._second_byte(self.opcode)
 
     def add_nn_no_carry(self):
+        """
+        Handler for code 7xkk - ADD Vx, kk
+        """
         reg_idx = self._second_nibble(self.opcode)
         value = self._second_byte(self.opcode)
         self.registers[reg_idx] = (self.registers[reg_idx] + value) % 256
 
     def dispatch_reg_arithmetic(self):
+        """
+        Second layer categorization, arithmetic operations between registers. (codes
+        starting with 0x8)
+
+        8xy0 - LD Vx Vy
+        8xy1, 8xy2 and 8xy3, Bitwise operation assignment between registers.  
+        """
         reg1_idx = self._second_nibble(self.opcode)
         reg1_value = self.registers[reg1_idx]
         reg2_value = self.registers[self._third_nibble(self.opcode)]
@@ -207,32 +218,53 @@ class CPU:
                 ValueError(f"Code {self.opcode} not supported.")
 
     def add_reg_carry(self, reg_idx: int, value1: int, value2: int):
+        """
+        Handler for code 8xy4 - ADD Vx, Vy
+        """
         sum_ = value1 + value2
         self.registers[-1] = 1 if sum_ > 255 else 0
         self.registers[reg_idx] = sum_ % 256
 
     def sub_reg_borrow(self, reg_idx: int, value1: int, value2: int):
+        """
+        Handler for codes: 8xy5 - SUB Vx, Vy; 8xy7 - SUBN Vx, Vy
+        """
         diff = value1 - value2
         self.registers[-1] = 0 if diff < 0 else 1
         self.registers[reg_idx] = (diff + 256) % 256
 
     def shift_reg_right(self, reg_idx: int, value1: int):
+        """
+        Handler for code 8xy6 - SHR Vx {, Vy}
+        """
         self.registers[-1] = value1 & 0b0000_0001
         self.registers[reg_idx] = value1 >> 1
 
     def shift_reg_left(self, reg_idx: int, value1: int):
+        """
+        Handler for code 8xyE - SHL Vx {, Vy}
+        """
         self.registers[-1] = value1 & 0b1000_0000
         self.registers[reg_idx] = (value1 & 0b0111_1111) << 1
 
     def set_i(self):
+        """
+        Handler for code Annn - LD I nnn
+        """
         self.i = self._last_3_nibbles(self.opcode)
 
     def set_random_byte(self):
+        """
+        Handler for code Cxkk - RND Vx, kk
+        """
         reg_idx = self._second_nibble(self.opcode)
         value = self._second_byte(self.opcode)
         self.registers[reg_idx] = value & randint(0, 255)
 
     def draw_sprite(self):
+        """
+        Handler for code Dxyn - DRW, Vx, Vy, n
+        """
         x = self._second_nibble(self.opcode)
         y = self._third_nibble(self.opcode)
         size = self._fourth_nibble(self.opcode)
