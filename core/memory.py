@@ -88,5 +88,5 @@ class Memory:
             raise ValueError("Given value larger than 1 byte")
         self._memory[addr] = value
 
-    def get_sprite_address(self, digit: int):
-        pass
+    def get_sprite_address(self, digit: int) -> int:
+        return FONTSET_START_ADDRESS + 5 * digit        

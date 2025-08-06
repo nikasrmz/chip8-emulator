@@ -299,7 +299,7 @@ class CPU:
             case 0x001E:
                 self.i += self.registers[reg_idx]
             case 0x0029:
-                pass # TODO: getting sprite address
+                self.memory.get_sprite_address(self.registers[reg_idx])
             case 0x0033:
                 self.store_bcd()
             case 0x0055:
