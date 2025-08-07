@@ -22,7 +22,7 @@ class CPU:
     opcode: int
     delay_timer: int
     sound_timer: int
-    last_timer_update: int
+    last_timer_update: datetime
 
     def __init__(self, memory: Memory, display: Display, input_: Input_):
         self.memory = memory
@@ -34,7 +34,7 @@ class CPU:
         self.i = 0
         self.stack = [0] * STACK_SIZE
         self.sp = 0
-        last_timer_update = datetime.now()
+        self.last_timer_update = datetime.now()
 
     def cycle(self):
         self.opcode = self.memory.read_word(self.pc)
@@ -48,7 +48,7 @@ class CPU:
 
     def update_timers(self):
         time_now = datetime.now()
-        if time_now - self.last_timer_update <= 1 / 60:
+        if time_now - self.last_timer_update >= 1 / 60:
             if self.delay_timer > 0:
                 self.delay_timer -= 1
             if self.sound_timer > 0:
@@ -275,7 +275,7 @@ class CPU:
         """
         Handler for code 8xyE - SHL Vx {, Vy}
         """
-        self.registers[VF_IDX] = value1 & 0b1000_0000
+        self.registers[VF_IDX] = (value1 & 0b1000_0000) >> 7
         self.registers[reg_idx] = (value1 & 0b0111_1111) << 1
 
     def set_i(self):
@@ -348,4 +348,4 @@ class CPU:
             if write:
                 self.memory.write_byte(self.i + idx, self.registers[idx])
             else:
-                self.registers[idx] = self.memory.read_byte()
+                self.registers[idx] = self.memory.read_byte(self.i + idx)
