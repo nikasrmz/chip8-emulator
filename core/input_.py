@@ -30,7 +30,7 @@ class Input_:
                 if curr_key_states[idx] and not prev_key_states[idx]:
                     return idx
             prev_key_states = curr_key_states
-            sleep(0.01)
+            sleep(0.05)
 
     def _key_states(self) -> List[bool]:
         key_states = [False] * 16
