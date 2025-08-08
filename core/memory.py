@@ -19,20 +19,27 @@ class Memory:
     """
 
     _memory: List[int]
+    rom_loaded: bool
 
     def __init__(self):
         self._memory = [0] * MEMORY_SIZE_IN_BYTES
         self._load_fontset()
+        self.rom_loaded = False
 
     def load_rom(self, file_path: str):
         """
         Reads bytes from ROM file and replaces same-size sub-array in memory.
         """
-
+        if self.rom_loaded:
+            return
         with open(file_path, "rb") as f:
             byte_array = bytearray(f.read())
         end_idx = ROM_START_IDX + len(byte_array)
         self._memory[ROM_START_IDX:end_idx] = byte_array
+        self.rom_loaded = True
+
+    def load_game(self, game: str):
+        self.load_rom(f"roms/{game.upper()}")
 
     def _load_fontset(self):
         for digit in range(0x10):

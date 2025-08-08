@@ -1,6 +1,6 @@
 from typing import List
 from random import randint
-from datetime import datetime
+from time import perf_counter
 
 from core.memory import Memory
 from core.display import Display
@@ -22,7 +22,7 @@ class CPU:
     opcode: int
     delay_timer: int
     sound_timer: int
-    last_timer_update: datetime
+    last_timer_update: float
 
     def __init__(self, memory: Memory, display: Display, input_: Input_):
         self.memory = memory
@@ -34,7 +34,9 @@ class CPU:
         self.i = 0
         self.stack = [0] * STACK_SIZE
         self.sp = 0
-        self.last_timer_update = datetime.now()
+        self.delay_timer = 0
+        self.sound_timer = 0
+        self.last_timer_update = perf_counter()
 
     def cycle(self):
         self.opcode = self.memory.read_word(self.pc)
@@ -46,7 +48,7 @@ class CPU:
             
 
     def update_timers(self):
-        time_now = datetime.now()
+        time_now = perf_counter()
         if time_now - self.last_timer_update >= 1 / 60:
             if self.delay_timer > 0:
                 self.delay_timer -= 1
@@ -179,8 +181,8 @@ class CPU:
         """
         Handler for codes: 3xkk - SE Vx, kk; 4xkk - SNE Vx, kk.
         """
-        reg_value = self.registers[self._second_nibble(self.opcode)]
-        value = self._second_byte(self.opcode)
+        reg_value = self.registers[self._second_nibble()]
+        value = self._second_byte()
         if (
             (self.opcode & 0xF000 == 0x3000 and value == reg_value) or 
             (self.opcode & 0xF000 == 0x4000 and value != reg_value)
@@ -191,8 +193,8 @@ class CPU:
         """
         Handler for codes: 5xy0 - SE Vx, Vy; 9xy0 - SNE Vx, Vy.
         """
-        reg1_value = self.registers[self._second_nibble(self.opcode)]
-        reg2_value = self.registers[self._third_nibble(self.opcode)]
+        reg1_value = self.registers[self._second_nibble()]
+        reg2_value = self.registers[self._third_nibble()]
         if (
             (self.opcode & 0xF00F == 0x5000 and reg1_value == reg2_value) or 
             (self.opcode & 0xF00F == 0x9000 and reg1_value != reg2_value)
@@ -203,15 +205,15 @@ class CPU:
         """
         Handler for code 6xkk - LD Vx, kk.
         """
-        reg_idx = self._second_nibble(self.opcode)
-        self.registers[reg_idx] = self._second_byte(self.opcode)
+        reg_idx = self._second_nibble()
+        self.registers[reg_idx] = self._second_byte()
 
     def add_nn_no_carry(self):
         """
         Handler for code 7xkk - ADD Vx, kk
         """
-        reg_idx = self._second_nibble(self.opcode)
-        value = self._second_byte(self.opcode)
+        reg_idx = self._second_nibble()
+        value = self._second_byte()
         self.registers[reg_idx] = (self.registers[reg_idx] + value) % 256
 
     def dispatch_reg_arithmetic(self):
@@ -222,9 +224,9 @@ class CPU:
         8xy0 - LD Vx Vy
         8xy1, 8xy2 and 8xy3, Bitwise operation assignment between registers.  
         """
-        reg1_idx = self._second_nibble(self.opcode)
+        reg1_idx = self._second_nibble()
         reg1_value = self.registers[reg1_idx]
-        reg2_value = self.registers[self._third_nibble(self.opcode)]
+        reg2_value = self.registers[self._third_nibble()]
         match self.opcode & 0x000F:
             case 0x0000:
                 self.registers[reg1_idx] = reg2_value
@@ -281,30 +283,30 @@ class CPU:
         """
         Handler for code Annn - LD I nnn
         """
-        self.i = self._last_3_nibbles(self.opcode)
+        self.i = self._last_3_nibbles()
 
     def set_random_byte(self):
         """
         Handler for code Cxkk - RND Vx, kk
         """
-        reg_idx = self._second_nibble(self.opcode)
-        value = self._second_byte(self.opcode)
+        reg_idx = self._second_nibble()
+        value = self._second_byte()
         self.registers[reg_idx] = value & randint(0, 255)
 
     def draw_sprite(self):
         """
         Handler for code Dxyn - DRW, Vx, Vy, n
         """
-        x = self._second_nibble(self.opcode)
-        y = self._third_nibble(self.opcode)
-        size = self._fourth_nibble(self.opcode)
+        x = self.registers[self._second_nibble()]
+        y = self.registers[self._third_nibble()]
+        size = self._fourth_nibble()
         byte_array = [self.memory.read_byte(self.i + j) for j in range(size)]
         collision = self.display.draw_sprite(x, y, byte_array)
         self.registers[VF_IDX] = collision
 
     def process_input(self):
-        key = self.registers[self._second_nibble(self.opcode)]
-        low_byte = self._second_byte(self.opcode)
+        key = self.registers[self._second_nibble()]
+        low_byte = self._second_byte()
         if (
             (low_byte == 0x9E and self.input_.key_pressed(key)) or
             (low_byte == 0xA1 and self.input_.key_not_pressed(key))
@@ -312,7 +314,7 @@ class CPU:
             self.pc += 2
 
     def dispatch_misc_fx(self):
-        reg_idx = self._second_nibble(self.opcode)
+        reg_idx = self._second_nibble()
         match self.opcode & 0x00FF:
             case 0x0007:
                 self.registers[reg_idx] = self.delay_timer
@@ -325,7 +327,7 @@ class CPU:
             case 0x001E:
                 self.i += self.registers[reg_idx]
             case 0x0029:
-                self.memory.get_sprite_address(self.registers[reg_idx])
+                self.i = self.memory.get_sprite_address(self.registers[reg_idx])
             case 0x0033:
                 self.store_bcd()
             case 0x0055:
@@ -336,14 +338,14 @@ class CPU:
                 UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
     def store_bcd(self):
-        val = self.registers[self._second_nibble(self.opcode)]
+        val = self.registers[self._second_nibble()]
         for j in range(3):
             digit = (val // (10 ** (2 - j))) % 10
             self.memory.write_byte(self.i + j, digit)
 
     def exchange_regs_memory(self, write: bool):
-        reg_idx = self._second_nibble(self.opcode)
-        for idx in range(reg_idx):
+        reg_idx = self._second_nibble()
+        for idx in range(reg_idx + 1):
             if write:
                 self.memory.write_byte(self.i + idx, self.registers[idx])
             else:
