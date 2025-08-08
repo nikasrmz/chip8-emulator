@@ -1,5 +1,5 @@
 from time import sleep
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import keyboard
 
@@ -31,6 +31,17 @@ class Input_:
                     return idx
             prev_key_states = curr_key_states
             sleep(0.05)
+    
+    def start_waiting(self):
+        self.last_key_states = self._key_states()
+        
+    def check_keystates_changed(self) -> Optional[int]:
+        curr_key_states = self._key_states()
+        for idx in range(len(curr_key_states)):
+            if curr_key_states[idx] and not self.last_key_states[idx]:
+                return idx
+        self.last_key_states = curr_key_states
+        return None
 
     def _key_states(self) -> List[bool]:
         key_states = [False] * 16

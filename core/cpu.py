@@ -37,14 +37,17 @@ class CPU:
         self.delay_timer = 0
         self.sound_timer = 0
         self.last_timer_update = perf_counter()
+        self.waiting_for_key = False
 
     def cycle(self):
-        self.opcode = self.memory.read_word(self.pc)
-        self.dispatch()
-        if not self.pc_modified:
-            self.pc += 2
-        self.pc_modified = False
-        self.update_timers()
+        if not self.waiting_for_key:
+            self.opcode = self.memory.read_word(self.pc)
+            self.dispatch()
+            if not self.pc_modified:
+                self.pc += 2
+            self.pc_modified = False
+        else: 
+            self.waiting_for_key = not self.check_any_key_pressed()
             
 
     def update_timers(self):
@@ -319,7 +322,8 @@ class CPU:
             case 0x0007:
                 self.registers[reg_idx] = self.delay_timer
             case 0x000A:
-                self.registers[reg_idx] = self.input_.wait_store_key()
+                self.input_.start_waiting()
+                self.waiting_for_key = True
             case 0x0015:
                 self.delay_timer = self.registers[reg_idx]
             case 0x0018:
@@ -336,6 +340,15 @@ class CPU:
                 self.exchange_regs_memory(write=False)
             case _:
                 UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
+
+    def check_any_key_pressed(self) -> bool:
+        key = self.input_.check_keystates_changed()
+        if key is not None:
+            reg_idx = self._second_nibble()
+            self.registers[reg_idx] = key
+            self.waiting_for_key = False
+            return True
+        return False
 
     def store_bcd(self):
         val = self.registers[self._second_nibble()]

@@ -1,10 +1,18 @@
+import os
+import sys
+
 from typing import List
 
 class Display:
     screen: List[List[bool]]
+    prev_screen: List[List[bool]]
     
     def __init__(self):
         self.screen = [[False] * 64 for _ in range(32)]
+        self.prev_screen = [[False] * 64 for _ in range(32)]
+        if sys.platform == "win32":
+            os.system('')
+        print("\033[2J\033[H", end="")
 
     def clear_screen(self):
         self.screen = [[False] * 64 for _ in range(32)]
@@ -22,13 +30,16 @@ class Display:
         return collided
     
     def refresh(self):
-        print("\033[2J\033[H", end="")
-        for i in self.screen:
-            for j in i:
-                if j:
-                    print("██", end="")
-                else:
-                    print("  ", end="")
-            print()
+        for i in range(len(self.screen)):
+            for j in range(len(self.screen[0])):
+                if self.screen[i][j] != self.prev_screen[i][j]:
+                    print(f"\033[{i+1};{j*2+1}H", end="")
+                    if self.screen[i][j]:
+                        print("██", end="")
+                    else:
+                        print("  ", end="")
+            # print()
+        self.prev_screen = [row[:] for row in self.screen]
+        print("", end="", flush=True)
     
     
