@@ -32,7 +32,7 @@ class Input_:
             prev_key_states = curr_key_states
             sleep(0.01)
 
-    def _key_states(self) -> List[int]:
+    def _key_states(self) -> List[bool]:
         key_states = [False] * 16
         for k in self.chip8_to_qwerty.keys():
             if self.key_pressed(k):
