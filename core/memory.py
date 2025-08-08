@@ -68,7 +68,7 @@ class Memory:
             value of 2 bytes as int
         """
 
-        if addr + 1 > MEMORY_SIZE_IN_BYTES:
+        if addr + 2 > MEMORY_SIZE_IN_BYTES:
             raise MemoryOutOfBoundsError("Memory access out of bounds")
         return self._memory[addr] << 8 | self._memory[addr + 1]
 
@@ -82,11 +82,12 @@ class Memory:
             value: value to write
         """
 
-        if addr > MEMORY_SIZE_IN_BYTES:
+        if addr >= MEMORY_SIZE_IN_BYTES:
             raise MemoryOutOfBoundsError("Memory access out of bounds")
-        if value > 255:
+        if value > 255 or value < 0:
             raise ByteOverflowError("Given value larger than 1 byte")
         self._memory[addr] = value
 
     def get_sprite_address(self, digit: int) -> int:
+        """Returns memory address of font of the given digit."""
         return FONTSET_START_ADDRESS + 5 * digit        

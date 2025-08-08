@@ -42,7 +42,6 @@ class CPU:
         if not self.pc_modified:
             self.pc += 2
         self.pc_modified = False
-        self.display.refresh()
         self.update_timers()
             
 
