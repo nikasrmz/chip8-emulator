@@ -17,7 +17,7 @@ class Input_:
         self.chip8_to_qwerty = {v: k for k, v in self.qwerty_to_chip8.items()}
 
     def key_pressed(self, key: int) -> bool:
-        return keyboard.is_pressed(self.chip8_to_qwerty(key))
+        return keyboard.is_pressed(self.chip8_to_qwerty[key])
 
     def key_not_pressed(self, key: int) -> bool:
         return not self.key_pressed(key)
