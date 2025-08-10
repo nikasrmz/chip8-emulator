@@ -339,7 +339,7 @@ class CPU:
             case 0x0065:
                 self.exchange_regs_memory(write=False)
             case _:
-                UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
+                raise UnsupportedOpcodeError(f"Code {self.opcode} not supported.")
 
     def check_any_key_pressed(self) -> bool:
         key = self.input_.check_keystates_changed()

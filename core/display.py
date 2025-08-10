@@ -23,7 +23,7 @@ class Display:
             for j in range(len(bytes_str := format(byte_array[i], "08b"))):
                 x = (x0 + j) % 64
                 y = (y0 + i) % 32
-                if self.screen[y][x] and bytes_str[j]:
+                if self.screen[y][x] and int(bytes_str[j]):
                     collided = True
                 self.screen[y][x] ^= True if bytes_str[j] == "1" else False
 
@@ -38,7 +38,6 @@ class Display:
                         print("██", end="")
                     else:
                         print("  ", end="")
-            # print()
         self.prev_screen = [row[:] for row in self.screen]
         print("", end="", flush=True)
     
