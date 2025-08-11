@@ -7,7 +7,6 @@ CHIP-8 uses a 16-key hexadecimal keypad (0-F) mapped to QWERTY keys.
 
 import pytest
 from unittest.mock import patch, MagicMock
-from time import sleep
 
 from core.input_ import Input_
 
@@ -149,102 +148,122 @@ class TestKeyPressDetection:
             input_handler.key_pressed(-1)  # Negative key
 
 
-class TestWaitStoreKey:
-    @patch('core.input_.sleep')
+class TestKeyStateTracking:
     @patch('core.input_.keyboard.is_pressed')
-    def test_wait_store_key_detects_key_press(self, mock_is_pressed, mock_sleep):
-        """Should detect and return key when transition from not pressed to pressed occurs."""
+    def test_start_waiting_captures_initial_state(self, mock_is_pressed):
+        """start_waiting should capture current key states."""
         input_handler = Input_()
         
-        # Each call to _key_states() calls keyboard.is_pressed 16 times (once per CHIP-8 key)
-        # Simulate: no keys pressed initially, then 'x' (CHIP-8 key 0) gets pressed after delay
-        call_count = 0
-        def mock_is_pressed_side_effect(qwerty_key):
-            nonlocal call_count
-            call_count += 1
-            # After second iteration (32 calls), 'x' becomes pressed
-            # This ensures at least one sleep() call happens
-            return qwerty_key == 'x' and call_count > 32
+        # Simulate some keys being pressed initially
+        def mock_side_effect(key):
+            return key in ['1', 'q']
         
-        mock_is_pressed.side_effect = mock_is_pressed_side_effect
+        mock_is_pressed.side_effect = mock_side_effect
         
-        result = input_handler.wait_store_key()
+        input_handler.start_waiting()
+        
+        # Should have captured the initial state
+        expected_states = [False] * 16
+        expected_states[0x1] = True  # '1' key
+        expected_states[0x4] = True  # 'q' key
+        
+        assert input_handler.last_key_states == expected_states
+
+    @patch('core.input_.keyboard.is_pressed')
+    def test_check_keystates_changed_detects_new_press(self, mock_is_pressed):
+        """Should detect when a key transitions from not pressed to pressed."""
+        input_handler = Input_()
+        
+        # Initial state: no keys pressed
+        mock_is_pressed.return_value = False
+        input_handler.start_waiting()
+        
+        # Now 'x' (CHIP-8 key 0) gets pressed
+        def mock_side_effect(key):
+            return key == 'x'
+        
+        mock_is_pressed.side_effect = mock_side_effect
+        
+        result = input_handler.check_keystates_changed()
         
         assert result == 0x0  # Should return CHIP-8 key 0
-        assert mock_sleep.called  # Should have called sleep at least once
 
-    @patch('core.input_.sleep')
     @patch('core.input_.keyboard.is_pressed')
-    def test_wait_store_key_ignores_already_pressed_keys(self, mock_is_pressed, mock_sleep):
-        """Should ignore keys that are already pressed and wait for new press."""
+    def test_check_keystates_changed_ignores_already_pressed(self, mock_is_pressed):
+        """Should ignore keys that were already pressed."""
         input_handler = Input_()
         
-        # Simulate: 'x' already pressed, then '1' gets newly pressed
-        call_count = 0
-        def mock_is_pressed_side_effect(qwerty_key):
-            nonlocal call_count
-            call_count += 1
-            
-            if qwerty_key == 'x':  # CHIP-8 key 0x0
-                return True  # Always pressed (should be ignored)
-            elif qwerty_key == '1':  # CHIP-8 key 0x1
-                # Gets pressed after second iteration (after 32 calls)
-                return call_count > 32
-            else:
-                return False
+        # Initial state: 'x' already pressed
+        def initial_mock(key):
+            return key == 'x'
         
-        mock_is_pressed.side_effect = mock_is_pressed_side_effect
+        mock_is_pressed.side_effect = initial_mock
+        input_handler.start_waiting()
         
-        result = input_handler.wait_store_key()
+        # 'x' still pressed - should return None
+        result = input_handler.check_keystates_changed()
         
-        assert result == 0x1  # Should return newly pressed key, not already pressed one
+        assert result is None
 
-    @patch('core.input_.sleep')
     @patch('core.input_.keyboard.is_pressed')
-    def test_wait_store_key_returns_first_detected_press(self, mock_is_pressed, mock_sleep):
-        """Should return the first key that transitions to pressed state."""
+    def test_check_keystates_changed_returns_first_new_press(self, mock_is_pressed):
+        """Should return the first key that becomes newly pressed."""
         input_handler = Input_()
         
-        call_count = 0
-        def mock_is_pressed_side_effect(qwerty_key):
-            nonlocal call_count
-            call_count += 1
-            
-            # After second iteration, both 'q' and 'w' become pressed simultaneously
-            if call_count > 32 and qwerty_key in ['q', 'w']:
-                return True
-            return False
+        # Initial state: no keys pressed
+        mock_is_pressed.return_value = False
+        input_handler.start_waiting()
         
-        mock_is_pressed.side_effect = mock_is_pressed_side_effect
+        # Multiple keys become pressed
+        def mock_side_effect(key):
+            return key in ['q', 'w']  # Both become pressed
         
-        result = input_handler.wait_store_key()
+        mock_is_pressed.side_effect = mock_side_effect
         
-        # Should return whichever key is checked first in the loop (0x4 for 'q' comes before 0x5 for 'w')
-        assert result in [0x4, 0x5]  # Either 'q' or 'w' depending on iteration order
+        result = input_handler.check_keystates_changed()
+        
+        # Should return one of them (0x4 for 'q' or 0x5 for 'w')
+        assert result in [0x4, 0x5]
 
-    @patch('core.input_.sleep')
-    def test_wait_store_key_calls_sleep(self, mock_sleep):
-        """Should call sleep to avoid busy waiting."""
+    @patch('core.input_.keyboard.is_pressed')
+    def test_check_keystates_changed_updates_last_states(self, mock_is_pressed):
+        """Should update last_key_states after checking."""
         input_handler = Input_()
         
-        # Mock to return a key press after a few iterations
-        with patch('core.input_.keyboard.is_pressed') as mock_is_pressed:
-            call_count = 0
-            def mock_side_effect(qwerty_key):
-                nonlocal call_count
-                call_count += 1
-                # After second iteration (32 calls), 'x' becomes pressed
-                # This ensures at least one sleep() call happens
-                return qwerty_key == 'x' and call_count > 32
-            
-            mock_is_pressed.side_effect = mock_side_effect
-            
-            input_handler.wait_store_key()
-            
-            # Should have called sleep at least once (probably multiple times)
-            assert mock_sleep.call_count >= 1
-            # Should sleep for 0.01 seconds
-            mock_sleep.assert_called_with(0.05)
+        # Initial: no keys
+        mock_is_pressed.return_value = False
+        input_handler.start_waiting()
+        
+        # New state: 'x' pressed
+        def mock_side_effect(key):
+            return key == 'x'
+        
+        mock_is_pressed.side_effect = mock_side_effect
+        
+        # First check should detect the change
+        result1 = input_handler.check_keystates_changed()
+        assert result1 == 0x0
+        
+        # Second check with same state should return None
+        result2 = input_handler.check_keystates_changed()
+        assert result2 is None
+
+    @patch('core.input_.keyboard.is_pressed')
+    def test_check_keystates_changed_no_change_returns_none(self, mock_is_pressed):
+        """Should return None when no keys change state."""
+        input_handler = Input_()
+        
+        # Consistent state: same keys pressed
+        def mock_side_effect(key):
+            return key in ['1', '2']
+        
+        mock_is_pressed.side_effect = mock_side_effect
+        input_handler.start_waiting()
+        
+        # Check with same state should return None
+        result = input_handler.check_keystates_changed()
+        
+        assert result is None
 
 
 class TestKeyStatesHelper:
@@ -344,3 +363,83 @@ class TestEdgeCases:
         
         assert call('x') in mock_is_pressed.call_args_list
         assert call('v') in mock_is_pressed.call_args_list
+
+    @patch('core.input_.keyboard.is_pressed')
+    def test_start_waiting_without_prior_state(self, mock_is_pressed):
+        """start_waiting should work on first call without prior state."""
+        mock_is_pressed.return_value = False
+        input_handler = Input_()
+        
+        # Should not raise any exceptions
+        input_handler.start_waiting()
+        
+        # Should have captured initial state
+        assert hasattr(input_handler, 'last_key_states')
+        assert len(input_handler.last_key_states) == 16
+
+    @patch('core.input_.keyboard.is_pressed')
+    def test_check_keystates_changed_without_start_waiting(self, mock_is_pressed):
+        """check_keystates_changed should handle case where start_waiting wasn't called."""
+        mock_is_pressed.return_value = False
+        input_handler = Input_()
+        
+        # This might raise AttributeError or handle gracefully depending on implementation
+        # The current implementation expects start_waiting to be called first
+        try:
+            result = input_handler.check_keystates_changed()
+            # If it handles gracefully, result should be reasonable
+            assert result is None or isinstance(result, int)
+        except AttributeError:
+            # This is acceptable behavior - start_waiting should be called first
+            pass
+
+
+class TestIntegrationScenarios:
+    @patch('core.input_.keyboard.is_pressed')
+    def test_typical_key_waiting_workflow(self, mock_is_pressed):
+        """Should handle typical key waiting workflow correctly."""
+        input_handler = Input_()
+        
+        # Phase 1: Start waiting with no keys pressed
+        mock_is_pressed.return_value = False
+        input_handler.start_waiting()
+        
+        # Phase 2: Check while no keys pressed - should return None
+        result1 = input_handler.check_keystates_changed()
+        assert result1 is None
+        
+        # Phase 3: Key gets pressed
+        def mock_side_effect(key):
+            return key == 'x'
+        
+        mock_is_pressed.side_effect = mock_side_effect
+        
+        # Should detect the new key press
+        result2 = input_handler.check_keystates_changed()
+        assert result2 == 0x0
+        
+        # Phase 4: Same key still pressed - should return None
+        result3 = input_handler.check_keystates_changed()
+        assert result3 is None
+
+    @patch('core.input_.keyboard.is_pressed')
+    def test_multiple_key_transitions(self, mock_is_pressed):
+        """Should handle multiple key state transitions correctly."""
+        input_handler = Input_()
+        
+        # Start with 'x' pressed
+        def initial_state(key):
+            return key == 'x'
+        
+        mock_is_pressed.side_effect = initial_state
+        input_handler.start_waiting()
+        
+        # Release 'x', press '1'
+        def new_state(key):
+            return key == '1'
+        
+        mock_is_pressed.side_effect = new_state
+        
+        # Should detect the new key press (even though another was released)
+        result = input_handler.check_keystates_changed()
+        assert result == 0x1
